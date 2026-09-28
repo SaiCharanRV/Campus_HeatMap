@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Mail, Lock, Loader2, ArrowRight, GraduationCap } from "lucide-react";
+import { Mail, Lock, Loader2, ArrowRight, GraduationCap, Eye, EyeOff, Calculator } from "lucide-react";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -13,14 +13,41 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const [showPassword, setShowPassword] = useState(false);
+  const [captchaString, setCaptchaString] = useState("");
+  const [captchaAnswer, setCaptchaAnswer] = useState("");
+  const [captchaError, setCaptchaError] = useState("");
+
   const router = useRouter();
 
   // Allow @iitr.ac.in or any subdomain like @ece.iitr.ac.in
   const isEmailValid = email === "" || email.endsWith("@iitr.ac.in") || email.endsWith(".iitr.ac.in");
 
+  useEffect(() => {
+    generateCaptcha();
+  }, []);
+
+  const generateCaptcha = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+    let result = "";
+    for (let i = 0; i < 5; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setCaptchaString(result);
+    setCaptchaAnswer("");
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isEmailValid) return;
+    
+    // Validate Alphanumeric Captcha
+    if (captchaAnswer.toLowerCase() !== captchaString.toLowerCase()) {
+      setCaptchaError("Incorrect CAPTCHA. Please try again.");
+      generateCaptcha();
+      return;
+    }
+    setCaptchaError("");
     
     setLoading(true);
     setError("");
@@ -35,11 +62,13 @@ export default function LoginPage() {
 
       if (res?.error) {
         setError(res.error);
+        generateCaptcha(); // Regenerate captcha on failed login
       } else {
         router.refresh();
       }
     } catch (err) {
       setError("An unexpected error occurred");
+      generateCaptcha();
     } finally {
       setLoading(false);
     }
@@ -155,20 +184,66 @@ export default function LoginPage() {
                     <Lock className="h-5 w-5 text-slate-400" />
                   </div>
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
+                    className="w-full pl-10 pr-10 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors focus:outline-none"
+                    title={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  CAPTCHA Verification
+                </label>
+                <div className="flex items-center justify-between mb-3 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                  <div className="bg-slate-200 px-6 py-2 rounded border border-slate-300 shadow-inner select-none pointer-events-none w-full text-center mr-3 relative overflow-hidden">
+                    {/* Visual noise elements */}
+                    <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-slate-900 via-transparent to-transparent bg-[length:4px_4px]"></div>
+                    <span className="relative z-10 text-2xl font-bold tracking-[0.3em] text-slate-800 italic line-through decoration-slate-500/70">
+                      {captchaString}
+                    </span>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={generateCaptcha}
+                    className="text-xs shrink-0 text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 bg-white border border-slate-200 rounded shadow-sm transition-all"
+                  >
+                    Refresh
+                  </button>
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Calculator className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={captchaAnswer}
+                    onChange={(e) => setCaptchaAnswer(e.target.value)}
+                    placeholder="Enter the code above"
+                    className={`w-full pl-10 pr-4 py-2.5 bg-white border ${captchaError ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : 'border-slate-200 focus:border-indigo-500 focus:ring-indigo-500'} rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 transition-all duration-200 shadow-sm`}
                   />
                 </div>
+                {captchaError && (
+                  <p className="text-xs text-red-500 mt-1.5 font-medium">{captchaError}</p>
+                )}
               </div>
             </div>
 
             <button
               type="submit"
-              disabled={loading || !isEmailValid}
+              disabled={loading || !isEmailValid || !captchaAnswer}
               className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium shadow-md hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-2 group disabled:opacity-70 disabled:hover:translate-y-0"
             >
               {loading ? (
