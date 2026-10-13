@@ -19,6 +19,7 @@ import {
   Inbox,
   RefreshCw,
   Filter,
+  Building2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -34,24 +35,14 @@ type Complaint = {
   location?: string;
 };
 
-type StaffMember = {
-  name: string;
-  role: string;
-  department: string;
-  email: string;
-};
+interface Props {
+  name: string | null;
+  email: string | null;
+  department: string | null;
+  zone: string | null;
+}
 
-// ─── Mock Hardcoded Staff – change `department` to switch views ───────────────
-const CURRENT_STAFF: StaffMember = {
-  name: "Rajesh",
-  role: "Staff",
-  department: "Water",
-  email: "water@gmail.com",
-};
-
-// Status options available for management
 const STATUS_OPTIONS = ["Pending", "In Progress", "Resolved"] as const;
-type Status = (typeof STATUS_OPTIONS)[number];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -114,22 +105,25 @@ function getSeverityBadge(severity?: string) {
   }
 }
 
-function getDeptColor(dept: string) {
+function getDeptColor(dept: string | null) {
   const map: Record<string, { bg: string; text: string }> = {
     Water: { bg: "bg-blue-600", text: "text-white" },
-    Electricity: { bg: "bg-amber-500", text: "text-white" },
+    Electrical: { bg: "bg-amber-500", text: "text-white" },
     WiFi: { bg: "bg-violet-600", text: "text-white" },
     Cleaning: { bg: "bg-emerald-600", text: "text-white" },
     Infrastructure: { bg: "bg-rose-600", text: "text-white" },
   };
-  return map[dept] ?? { bg: "bg-slate-600", text: "text-white" };
+  return (dept && map[dept]) ? map[dept] : { bg: "bg-slate-600", text: "text-white" };
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function StaffDashboardClient() {
-  const currentStaff = CURRENT_STAFF;
-  const deptColors = getDeptColor(currentStaff.department);
+export default function StaffDashboardClient({ name, email, department, zone }: Props) {
+  const displayName = name ?? email ?? "Staff";
+  const displayDept = department ?? "All Departments";
+  const displayZone = zone ?? "—";
+  const deptColors = getDeptColor(department);
+  const initials = (name ?? email ?? "S").charAt(0).toUpperCase();
 
   // ── State ──
   const [allComplaints, setAllComplaints] = useState<Complaint[]>([]);
@@ -153,19 +147,19 @@ export default function StaffDashboardClient() {
     setIsLoaded(true);
   }, []);
 
-  // ── Save to localStorage whenever complaints change ──
+  // ── Write back to localStorage on every change ──
   useEffect(() => {
     if (isLoaded) {
       localStorage.setItem("userComplaints", JSON.stringify(allComplaints));
     }
   }, [allComplaints, isLoaded]);
 
-  // ── Derived: department-filtered complaints ──
-  const deptComplaints = allComplaints.filter(
-    (c) => c.issueType === currentStaff.department
-  );
+  // ── Department filter (dynamic from session) ──
+  const deptComplaints = department
+    ? allComplaints.filter((c) => c.issueType === department)
+    : allComplaints; // if no department set, show all (fallback)
 
-  // ── Further filter by search / status / severity ──
+  // ── Secondary filters ──
   const filteredComplaints = deptComplaints.filter((c) => {
     if (filterStatus !== "All" && c.status !== filterStatus) return false;
     if (filterSeverity !== "All" && c.severity !== filterSeverity) return false;
@@ -178,38 +172,31 @@ export default function StaffDashboardClient() {
     return true;
   });
 
-  // ── Metric counts (from dept-only complaints) ──
+  // ── Metrics ──
   const countPending = deptComplaints.filter((c) => c.status === "Pending").length;
   const countInProgress = deptComplaints.filter((c) => c.status === "In Progress").length;
   const countResolved = deptComplaints.filter((c) => c.status === "Resolved").length;
 
-  // ── Status change handler ──
-  const handleStatusChange = useCallback(
-    (id: number, newStatus: string) => {
-      setAllComplaints((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, status: newStatus } : c))
-      );
-      showToast(`Status updated to "${newStatus}"`);
-    },
-    []
-  );
+  // ── Status change → immediately persist to localStorage ──
+  const handleStatusChange = useCallback((id: number, newStatus: string) => {
+    setAllComplaints((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, status: newStatus } : c))
+    );
+    showToast(`Status updated to "${newStatus}"`);
+  }, []);
 
-  // ── Toast ──
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // ── Refresh (re-read localStorage) ──
   const handleRefresh = () => {
     const saved = localStorage.getItem("userComplaints");
     if (saved) {
       try {
         setAllComplaints(JSON.parse(saved));
         showToast("Refreshed latest complaints.");
-      } catch {
-        // ignore
-      }
+      } catch { /* ignore */ }
     }
   };
 
@@ -224,76 +211,62 @@ export default function StaffDashboardClient() {
           </div>
         </div>
 
-        {/* Department badge */}
-        <div className="hidden md:flex px-5 mb-6">
-          <div
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl ${deptColors.bg} ${deptColors.text} w-full`}
-          >
+        {/* Department + Zone badge */}
+        <div className="hidden md:flex flex-col px-5 mb-6 gap-2">
+          <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl ${deptColors.bg} ${deptColors.text} w-full`}>
             <ClipboardList className="h-4 w-4 opacity-80" />
-            <span className="font-semibold text-sm">{currentStaff.department} Dept.</span>
+            <span className="font-semibold text-sm">{displayDept}</span>
           </div>
+          {zone && (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 text-slate-600 text-sm font-medium w-full">
+              <MapPin className="h-4 w-4 opacity-70" />
+              <span>{displayZone}</span>
+            </div>
+          )}
         </div>
 
         <nav className="hidden md:flex flex-col gap-1 px-4 flex-1">
-          <Link
-            href="#"
-            className="flex items-center gap-3 px-3 py-2.5 bg-purple-50 text-purple-700 rounded-lg font-medium transition-colors"
-          >
+          <Link href="#" className="flex items-center gap-3 px-3 py-2.5 bg-purple-50 text-purple-700 rounded-lg font-medium transition-colors">
             <LayoutDashboard className="h-5 w-5" /> Dashboard
           </Link>
-          <Link
-            href="#"
-            className="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-slate-50 rounded-lg font-medium transition-colors"
-          >
+          <Link href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-slate-50 rounded-lg font-medium transition-colors">
             <Inbox className="h-5 w-5" /> Issue Queue
           </Link>
-          <Link
-            href="#"
-            className="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-slate-50 rounded-lg font-medium transition-colors"
-          >
+          <Link href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-slate-50 rounded-lg font-medium transition-colors">
             <Bell className="h-5 w-5" /> Notifications
           </Link>
-          <Link
-            href="#"
-            className="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-slate-50 rounded-lg font-medium transition-colors"
-          >
+          <Link href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-slate-50 rounded-lg font-medium transition-colors">
             <TrendingUp className="h-5 w-5" /> Analytics
           </Link>
-          <Link
-            href="#"
-            className="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-slate-50 rounded-lg font-medium transition-colors"
-          >
+          <Link href="#" className="flex items-center gap-3 px-3 py-2.5 text-slate-600 hover:bg-slate-50 rounded-lg font-medium transition-colors">
             <Settings className="h-5 w-5" /> Settings
           </Link>
         </nav>
 
-        {/* Profile footer */}
+        {/* Profile footer in sidebar */}
         <div className="hidden md:flex items-center gap-3 m-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
-          <div
-            className={`w-9 h-9 rounded-full ${deptColors.bg} flex items-center justify-center flex-shrink-0`}
-          >
-            <span className={`text-sm font-bold ${deptColors.text}`}>
-              {currentStaff.name[0]}
-            </span>
+          <div className={`w-9 h-9 rounded-full ${deptColors.bg} flex items-center justify-center flex-shrink-0`}>
+            <span className={`text-sm font-bold ${deptColors.text}`}>{initials}</span>
           </div>
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-slate-800 truncate">{currentStaff.name}</p>
-            <p className="text-xs text-slate-500 truncate">{currentStaff.email}</p>
+            <p className="text-sm font-semibold text-slate-800 truncate">{displayName}</p>
+            <p className="text-xs text-slate-500 truncate">{email ?? ""}</p>
           </div>
         </div>
       </aside>
 
       {/* ── Main area ───────────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top navbar */}
+        {/* Top header */}
         <header className="bg-white border-b border-slate-200 px-6 md:px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
           <div className="flex flex-col">
             <h1 className="text-lg font-bold text-slate-800 leading-tight">
-              Welcome back,{" "}
-              <span className="text-purple-700">{currentStaff.name}</span>!
+              Welcome back, <span className="text-purple-700">{displayName}</span>!
             </h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              {currentStaff.department} Department · Staff Portal
+              {displayDept}
+              {zone ? ` · ${displayZone}` : ""}
+              {" · Staff Portal"}
             </p>
           </div>
 
@@ -313,15 +286,21 @@ export default function StaffDashboardClient() {
                 className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg transition-colors text-sm font-medium"
               >
                 <User className="h-4 w-4" />
-                <span className="hidden sm:inline">{currentStaff.name}</span>
+                <span className="hidden sm:inline">{displayName}</span>
                 <ChevronDown className="h-3.5 w-3.5" />
               </button>
 
               {dropdownOpen && (
-                <div className="absolute right-0 mt-2 w-52 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden z-30">
-                  <div className="px-4 py-3 bg-slate-50 border-b border-slate-100">
-                    <p className="text-sm font-semibold text-slate-900">{currentStaff.name}</p>
-                    <p className="text-xs text-slate-500 truncate">{currentStaff.email}</p>
+                <div className="absolute right-0 mt-2 w-60 bg-white rounded-xl shadow-lg border border-slate-100 overflow-hidden z-30">
+                  <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 space-y-1">
+                    <p className="text-sm font-semibold text-slate-900">{displayName}</p>
+                    <p className="text-xs text-slate-500 truncate">{email}</p>
+                    {department && (
+                      <p className="text-xs text-slate-500 flex items-center gap-1">
+                        <Building2 className="h-3 w-3" /> {department}
+                        {zone ? ` · ${zone}` : ""}
+                      </p>
+                    )}
                   </div>
                   <div className="p-1">
                     <Link
@@ -340,7 +319,6 @@ export default function StaffDashboardClient() {
         <main className="flex-1 p-6 md:p-8 overflow-y-auto">
           {/* ── Metric cards ─────────────────────────────────────────── */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 mb-8">
-            {/* Pending */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-start gap-4">
               <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center flex-shrink-0">
                 <AlertTriangle className="h-6 w-6" />
@@ -348,11 +326,10 @@ export default function StaffDashboardClient() {
               <div>
                 <p className="text-sm font-medium text-slate-500 mb-0.5">Pending</p>
                 <p className="text-3xl font-bold text-amber-600">{countPending}</p>
-                <p className="text-xs text-slate-400 mt-0.5">{currentStaff.department} issues</p>
+                <p className="text-xs text-slate-400 mt-0.5">{displayDept} issues</p>
               </div>
             </div>
 
-            {/* In Progress */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-start gap-4">
               <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
                 <Clock className="h-6 w-6" />
@@ -360,11 +337,10 @@ export default function StaffDashboardClient() {
               <div>
                 <p className="text-sm font-medium text-slate-500 mb-0.5">In Progress</p>
                 <p className="text-3xl font-bold text-blue-600">{countInProgress}</p>
-                <p className="text-xs text-slate-400 mt-0.5">{currentStaff.department} issues</p>
+                <p className="text-xs text-slate-400 mt-0.5">{displayDept} issues</p>
               </div>
             </div>
 
-            {/* Resolved */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-start gap-4">
               <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center flex-shrink-0">
                 <CheckCircle className="h-6 w-6" />
@@ -372,24 +348,23 @@ export default function StaffDashboardClient() {
               <div>
                 <p className="text-sm font-medium text-slate-500 mb-0.5">Resolved</p>
                 <p className="text-3xl font-bold text-emerald-600">{countResolved}</p>
-                <p className="text-xs text-slate-400 mt-0.5">{currentStaff.department} issues</p>
+                <p className="text-xs text-slate-400 mt-0.5">{displayDept} issues</p>
               </div>
             </div>
           </div>
 
           {/* ── Issues table ─────────────────────────────────────────── */}
           <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            {/* Table header / filters */}
+            {/* Table header + filters */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 px-6 py-5 border-b border-slate-100">
               <div>
                 <h2 className="text-lg font-bold text-slate-800">
-                  {currentStaff.department} — Active Issues
+                  {displayDept} — Active Issues
+                  {zone && <span className="ml-2 text-sm font-normal text-slate-400">({displayZone})</span>}
                 </h2>
                 <p className="text-sm text-slate-500 mt-0.5">
                   {deptComplaints.length} total ·{" "}
-                  <span className="text-purple-600 font-medium">
-                    {filteredComplaints.length} shown
-                  </span>
+                  <span className="text-purple-600 font-medium">{filteredComplaints.length} shown</span>
                 </p>
               </div>
 
@@ -458,7 +433,7 @@ export default function StaffDashboardClient() {
                             <Inbox className="h-7 w-7 text-slate-400" />
                           </div>
                           <p className="text-base font-semibold text-slate-700">
-                            No {currentStaff.department} issues found
+                            No {displayDept} issues found
                           </p>
                           <p className="text-sm text-slate-400 max-w-xs">
                             {deptComplaints.length === 0
@@ -470,69 +445,48 @@ export default function StaffDashboardClient() {
                     </tr>
                   ) : (
                     filteredComplaints.map((complaint) => (
-                      <tr
-                        key={complaint.id}
-                        className="hover:bg-slate-50/70 transition-colors"
-                      >
-                        {/* Issue type + severity */}
+                      <tr key={complaint.id} className="hover:bg-slate-50/70 transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex flex-col gap-1.5">
-                            <span className="font-semibold text-slate-900 text-sm">
-                              {complaint.issueType}
-                            </span>
+                            <span className="font-semibold text-slate-900 text-sm">{complaint.issueType}</span>
                             {getSeverityBadge(complaint.severity)}
                           </div>
                         </td>
-
-                        {/* Description */}
                         <td className="px-6 py-4">
                           <p className="text-sm text-slate-600 max-w-xs line-clamp-2">
                             {complaint.description || "—"}
                           </p>
                         </td>
-
-                        {/* Location */}
                         <td className="px-6 py-4">
                           <span className="text-sm text-slate-500 flex items-center gap-1 whitespace-nowrap">
                             <MapPin className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
                             {complaint.location || "Not specified"}
                           </span>
                         </td>
-
-                        {/* Date */}
                         <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
                           {complaint.date}
                         </td>
-
-                        {/* Current status badge */}
                         <td className="px-6 py-4">
                           {getStatusBadge(complaint.status)}
                         </td>
-
-                        {/* Action — status dropdown */}
                         <td className="px-6 py-4">
                           <div className="relative inline-block">
                             <select
                               value={complaint.status}
-                              onChange={(e) =>
-                                handleStatusChange(complaint.id, e.target.value)
-                              }
+                              onChange={(e) => handleStatusChange(complaint.id, e.target.value)}
                               className={`
                                 appearance-none pl-3 pr-8 py-2 text-sm font-medium rounded-lg border cursor-pointer
                                 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors
-                                ${
-                                  complaint.status === "Pending"
-                                    ? "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
-                                    : complaint.status === "In Progress"
-                                    ? "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100"
-                                    : "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                                ${complaint.status === "Pending"
+                                  ? "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+                                  : complaint.status === "In Progress"
+                                  ? "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100"
+                                  : "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
                                 }
                               `}
                             >
                               {STATUS_OPTIONS.map((s) => (
-                                <option key={s} value={s}>
-                                  {s}
-                                </option>
+                                <option key={s} value={s}>{s}</option>
                               ))}
                             </select>
                             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-60" />
@@ -545,25 +499,21 @@ export default function StaffDashboardClient() {
               </table>
             </div>
 
-            {/* Table footer summary */}
+            {/* Footer summary */}
             {filteredComplaints.length > 0 && (
               <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
                 <span>
-                  Showing {filteredComplaints.length} of {deptComplaints.length}{" "}
-                  {currentStaff.department} issues
+                  Showing {filteredComplaints.length} of {deptComplaints.length} {displayDept} issues
                 </span>
                 <span className="flex items-center gap-3">
                   <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-amber-400" />
-                    {countPending} pending
+                    <span className="w-2 h-2 rounded-full bg-amber-400" /> {countPending} pending
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-blue-400" />
-                    {countInProgress} in progress
+                    <span className="w-2 h-2 rounded-full bg-blue-400" /> {countInProgress} in progress
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                    {countResolved} resolved
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" /> {countResolved} resolved
                   </span>
                 </span>
               </div>
@@ -572,7 +522,7 @@ export default function StaffDashboardClient() {
         </main>
       </div>
 
-      {/* ── Toast notification ──────────────────────────────────────────── */}
+      {/* ── Toast ──────────────────────────────────────────────────────── */}
       {toastMessage && (
         <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-slate-900 text-white text-sm font-medium px-4 py-3 rounded-xl shadow-xl">
           <CheckCircle className="h-4 w-4 text-emerald-400 flex-shrink-0" />

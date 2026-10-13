@@ -16,7 +16,7 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Invalid credentials");
         }
-        
+
         // Enforce @iitr.ac.in or departmental subdomains only for Student role
         if (credentials.role === "Student") {
           if (!credentials.email.endsWith("@iitr.ac.in") && !credentials.email.endsWith(".iitr.ac.in")) {
@@ -53,7 +53,10 @@ export const authOptions: NextAuthOptions = {
         return {
           id: user.id,
           email: user.email,
+          name: user.name ?? null,
           role: user.role,
+          department: user.department ?? null,
+          zone: user.zone ?? null,
         };
       },
     }),
@@ -64,15 +67,21 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.role = user.role;
         token.id = user.id;
+        token.role = user.role;
+        token.name = user.name ?? null;
+        token.department = (user as any).department ?? null;
+        token.zone = (user as any).zone ?? null;
       }
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
-        (session.user as any).role = token.role;
         (session.user as any).id = token.id;
+        (session.user as any).role = token.role;
+        (session.user as any).name = token.name ?? null;
+        (session.user as any).department = token.department ?? null;
+        (session.user as any).zone = token.zone ?? null;
       }
       return session;
     },

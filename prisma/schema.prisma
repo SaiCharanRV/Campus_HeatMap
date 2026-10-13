@@ -11,20 +11,26 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  role      String   // "Student" or "Staff"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String   @id @default(cuid())
+  email      String   @unique
+  password   String
+  role       String   // "Student" or "Staff"
+  name       String?  // Full name (optional for backward compat)
+  department String?  // e.g. "Water", "Electrical" — Staff only
+  zone       String?  // e.g. "Zone A", "Zone B"   — Staff only
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model Otp {
-  id        String   @id @default(cuid())
-  email     String
-  code      String
-  role      String
-  password  String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  email      String
+  code       String
+  role       String
+  password   String
+  name       String?
+  department String?
+  zone       String?
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
 }

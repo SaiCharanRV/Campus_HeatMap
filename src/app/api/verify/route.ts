@@ -28,12 +28,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "OTP has expired" }, { status: 400 });
     }
 
-    // OTP is valid. Finalize user creation
+    // OTP is valid. Finalize user creation — carry over all profile fields
     const newUser = await prisma.user.create({
       data: {
         email: otpRecord.email,
         password: otpRecord.password, // Already hashed
         role: otpRecord.role,
+        name: otpRecord.name || null,
+        department: otpRecord.department || null,
+        zone: otpRecord.zone || null,
       }
     });
 

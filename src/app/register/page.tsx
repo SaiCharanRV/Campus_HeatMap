@@ -2,21 +2,45 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { GraduationCap, Mail, Lock, KeyRound, Loader2, ArrowRight } from "lucide-react";
+import {
+  GraduationCap,
+  Mail,
+  Lock,
+  KeyRound,
+  Loader2,
+  ArrowRight,
+  User,
+  Building2,
+  MapPin,
+} from "lucide-react";
 import Link from "next/link";
+
+// ─── Options ──────────────────────────────────────────────────────────────────
+const DEPARTMENTS = ["Water", "Electrical", "WiFi", "Infrastructure", "Cleaning"] as const;
+const ZONES = ["Zone A", "Zone B"] as const; // easily expandable
 
 export default function RegisterPage() {
   const [step, setStep] = useState<"details" | "otp">("details");
+  const [role, setRole] = useState("Student");
+
+  // Common fields
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("Student");
+
+  // Staff-only fields
+  const [department, setDepartment] = useState<string>(DEPARTMENTS[0]);
+  const [zone, setZone] = useState<string>(ZONES[0]);
+
+  // OTP
   const [otp, setOtp] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const router = useRouter();
-  
-  // Allow @iitr.ac.in for students, or any valid email for staff
+
+  // Email validation: domain-restricted for students, anything valid for staff
   const isEmailValid =
     email === "" ||
     (role === "Student"
@@ -26,7 +50,7 @@ export default function RegisterPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isEmailValid) return;
-    
+
     setLoading(true);
     setError("");
 
@@ -34,7 +58,14 @@ export default function RegisterPage() {
       const res = await fetch("/api/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, role }),
+        body: JSON.stringify({
+          email,
+          password,
+          role,
+          name: name.trim() || null,
+          department: role === "Staff" ? department : null,
+          zone: role === "Staff" ? zone : null,
+        }),
       });
 
       const data = await res.json();
@@ -44,7 +75,7 @@ export default function RegisterPage() {
       } else {
         setError(data.message || "Something went wrong");
       }
-    } catch (err) {
+    } catch {
       setError("An unexpected error occurred");
     } finally {
       setLoading(false);
@@ -70,7 +101,7 @@ export default function RegisterPage() {
       } else {
         setError(data.message || "Invalid OTP");
       }
-    } catch (err) {
+    } catch {
       setError("An unexpected error occurred");
     } finally {
       setLoading(false);
@@ -79,13 +110,12 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-white">
-      {/* Left Side: Brand Visual (Hidden on mobile) */}
+      {/* ── Left Side: Brand Visual ───────────────────────────────── */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900 relative p-12 flex-col justify-between overflow-hidden">
-        {/* Abstract Geometric Pattern Overlay */}
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent bg-[length:20px_20px]"></div>
-        <div className="absolute top-24 -left-24 w-96 h-96 bg-blue-500/20 rounded-full mix-blend-overlay filter blur-3xl"></div>
-        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-indigo-500/20 rounded-full mix-blend-overlay filter blur-3xl"></div>
-        
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent bg-[length:20px_20px]" />
+        <div className="absolute top-24 -left-24 w-96 h-96 bg-blue-500/20 rounded-full mix-blend-overlay filter blur-3xl" />
+        <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-indigo-500/20 rounded-full mix-blend-overlay filter blur-3xl" />
+
         <div className="relative z-10">
           <div className="flex items-center gap-3 text-white mb-16">
             <div className="w-10 h-10 bg-white/10 backdrop-blur-md rounded-lg flex items-center justify-center border border-white/20">
@@ -101,7 +131,7 @@ export default function RegisterPage() {
             Create your official account to access all university digital services seamlessly.
           </p>
         </div>
-        
+
         <div className="relative z-10 flex items-center justify-between text-indigo-300 text-sm font-medium">
           <p>&copy; {new Date().getFullYear()} IIT Roorkee. All rights reserved.</p>
           <div className="flex gap-4">
@@ -111,10 +141,10 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      {/* Right Side: Auth Form */}
-      <div className="flex-1 flex flex-col justify-center items-center p-6 sm:p-12 lg:p-16">
+      {/* ── Right Side: Auth Form ─────────────────────────────────── */}
+      <div className="flex-1 flex flex-col justify-center items-center p-6 sm:p-12 lg:p-16 overflow-y-auto">
         <div className="w-full max-w-sm">
-          {/* Mobile Header (Hidden on Desktop) */}
+          {/* Mobile Header */}
           <div className="flex lg:hidden items-center justify-center gap-2 text-indigo-900 mb-8">
             <GraduationCap className="h-8 w-8" />
             <span className="font-bold text-xl tracking-wide">IIT Roorkee</span>
@@ -131,9 +161,10 @@ export default function RegisterPage() {
             </div>
           )}
 
+          {/* ── Step 1: Details ─────────────────────────────────── */}
           {step === "details" ? (
-            <form onSubmit={handleRegister} className="space-y-6">
-              {/* Segmented Control for Role */}
+            <form onSubmit={handleRegister} className="space-y-5">
+              {/* Role toggle */}
               <div className="flex bg-slate-100 p-1 rounded-lg">
                 <button
                   type="button"
@@ -155,48 +186,117 @@ export default function RegisterPage() {
                 </button>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Mail className="h-5 w-5 text-slate-400" />
-                    </div>
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder={role === "Staff" ? "staff@gmail.com" : "name@iitr.ac.in"}
-                      className={`w-full pl-10 pr-4 py-2.5 bg-white border ${isEmailValid ? 'border-slate-200 focus:border-indigo-500 focus:ring-indigo-500' : 'border-red-300 focus:border-red-500 focus:ring-red-500'} rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 transition-all duration-200 shadow-sm`}
-                    />
+              {/* Full Name */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Full Name</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-slate-400" />
                   </div>
-                  {!isEmailValid && (
-                    <p className="text-xs text-red-500 mt-1.5 font-medium">
-                      {role === "Student"
-                        ? "Please use your official @iitr.ac.in or departmental email."
-                        : "Please enter a valid email address."}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Lock className="h-5 w-5 text-slate-400" />
-                    </div>
-                    <input
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Create a password"
-                      className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Your full name"
+                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 transition-all duration-200 shadow-sm"
+                  />
                 </div>
               </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder={role === "Staff" ? "staff@gmail.com" : "name@iitr.ac.in"}
+                    className={`w-full pl-10 pr-4 py-2.5 bg-white border ${
+                      isEmailValid
+                        ? "border-slate-200 focus:border-indigo-500 focus:ring-indigo-500"
+                        : "border-red-300 focus:border-red-500 focus:ring-red-500"
+                    } rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 transition-all duration-200 shadow-sm`}
+                  />
+                </div>
+                {!isEmailValid && (
+                  <p className="text-xs text-red-500 mt-1.5 font-medium">
+                    {role === "Student"
+                      ? "Please use your official @iitr.ac.in or departmental email."
+                      : "Please enter a valid email address."}
+                  </p>
+                )}
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-slate-400" />
+                  </div>
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Create a password"
+                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Staff-only: Department + Zone (animated reveal) */}
+              {role === "Staff" && (
+                <div className="space-y-4 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">Staff Details</p>
+
+                  {/* Department */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Department</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Building2 className="h-5 w-5 text-slate-400" />
+                      </div>
+                      <select
+                        required
+                        value={department}
+                        onChange={(e) => setDepartment(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm appearance-none"
+                      >
+                        {DEPARTMENTS.map((d) => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Zone */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Zone</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <MapPin className="h-5 w-5 text-slate-400" />
+                      </div>
+                      <select
+                        required
+                        value={zone}
+                        onChange={(e) => setZone(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm appearance-none"
+                      >
+                        {ZONES.map((z) => (
+                          <option key={z} value={z}>{z}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -214,6 +314,7 @@ export default function RegisterPage() {
               </button>
             </form>
           ) : (
+            /* ── Step 2: OTP Verification ─────────────────────────── */
             <form onSubmit={handleVerify} className="space-y-6">
               <div className="text-center mb-6">
                 <div className="mx-auto w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mb-4">
@@ -227,17 +328,15 @@ export default function RegisterPage() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5 text-center">Verification Code</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    required
-                    maxLength={6}
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                    placeholder="000000"
-                    className="w-full text-center tracking-[0.75em] text-2xl py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
-                  />
-                </div>
+                <input
+                  type="text"
+                  required
+                  maxLength={6}
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                  placeholder="000000"
+                  className="w-full text-center tracking-[0.75em] text-2xl py-3 bg-white border border-slate-200 rounded-lg text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 shadow-sm"
+                />
               </div>
 
               <button

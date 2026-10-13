@@ -5,7 +5,7 @@ import nodemailer from "nodemailer";
 
 export async function POST(req: Request) {
   try {
-    const { email, password, role } = await req.json();
+    const { email, password, role, name, department, zone } = await req.json();
 
     if (!email || !password || !role) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
@@ -23,6 +23,15 @@ export async function POST(req: Request) {
     if (role === "Student") {
       if (!email.endsWith("@iitr.ac.in") && !email.endsWith(".iitr.ac.in")) {
         return NextResponse.json({ message: "Only @iitr.ac.in or departmental emails are allowed for students." }, { status: 400 });
+      }
+    }
+
+    if (role === "Staff") {
+      if (!department) {
+        return NextResponse.json({ message: "Department is required for Staff accounts." }, { status: 400 });
+      }
+      if (!zone) {
+        return NextResponse.json({ message: "Zone is required for Staff accounts." }, { status: 400 });
       }
     }
 
@@ -44,7 +53,7 @@ export async function POST(req: Request) {
       where: { email }
     });
 
-    // Store in OTP table
+    // Store in OTP table (including name, department, zone for staff)
     await prisma.otp.create({
       data: {
         email,
@@ -52,6 +61,9 @@ export async function POST(req: Request) {
         role,
         code: otpCode,
         expiresAt,
+        name: name || null,
+        department: role === "Staff" ? (department || null) : null,
+        zone: role === "Staff" ? (zone || null) : null,
       },
     });
 

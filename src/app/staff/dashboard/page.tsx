@@ -10,5 +10,13 @@ export default async function StaffDashboard() {
     redirect("/login");
   }
 
-  return <StaffDashboardClient />;
+  // Pass real session fields to the client component
+  return (
+    <StaffDashboardClient
+      name={session.user?.name ?? null}
+      email={session.user?.email ?? null}
+      department={(session.user as any)?.department ?? null}
+      zone={(session.user as any)?.zone ?? null}
+    />
+  );
 }
