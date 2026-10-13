@@ -17,9 +17,11 @@ export const authOptions: NextAuthOptions = {
           throw new Error("Invalid credentials");
         }
         
-        // enforce @iitr.ac.in or departmental subdomains (.iitr.ac.in)
-        if (!credentials.email.endsWith("@iitr.ac.in") && !credentials.email.endsWith(".iitr.ac.in")) {
-          throw new Error("Only @iitr.ac.in or departmental emails are allowed");
+        // Enforce @iitr.ac.in or departmental subdomains only for Student role
+        if (credentials.role === "Student") {
+          if (!credentials.email.endsWith("@iitr.ac.in") && !credentials.email.endsWith(".iitr.ac.in")) {
+            throw new Error("Only @iitr.ac.in or departmental emails are allowed for students");
+          }
         }
 
         const user = await prisma.user.findUnique({
@@ -33,6 +35,13 @@ export const authOptions: NextAuthOptions = {
         // Validate that the user is logging in with their actual registered role
         if (credentials.role && user.role !== credentials.role) {
           throw new Error(`You are registered as a ${user.role}. Please select the correct role.`);
+        }
+
+        // Safeguard: Ensure student accounts adhere to @iitr.ac.in
+        if (user.role === "Student") {
+          if (!user.email.endsWith("@iitr.ac.in") && !user.email.endsWith(".iitr.ac.in")) {
+            throw new Error("Only @iitr.ac.in or departmental emails are allowed for students");
+          }
         }
 
         const isPasswordValid = await bcrypt.compare(credentials.password, user.password);

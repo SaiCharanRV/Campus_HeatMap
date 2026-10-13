@@ -20,8 +20,12 @@ export default function LoginPage() {
 
   const router = useRouter();
 
-  // Allow @iitr.ac.in or any subdomain like @ece.iitr.ac.in
-  const isEmailValid = email === "" || email.endsWith("@iitr.ac.in") || email.endsWith(".iitr.ac.in");
+  // Allow @iitr.ac.in for students, or any valid email for staff
+  const isEmailValid =
+    email === "" ||
+    (role === "Student"
+      ? email.endsWith("@iitr.ac.in") || email.endsWith(".iitr.ac.in")
+      : /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email));
 
   useEffect(() => {
     generateCaptcha();
@@ -163,12 +167,16 @@ export default function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@iitr.ac.in"
+                    placeholder={role === "Staff" ? "staff@gmail.com" : "name@iitr.ac.in"}
                     className={`w-full pl-10 pr-4 py-2.5 bg-white border ${isEmailValid ? 'border-slate-200 focus:border-indigo-500 focus:ring-indigo-500' : 'border-red-300 focus:border-red-500 focus:ring-red-500'} rounded-lg text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 transition-all duration-200 shadow-sm`}
                   />
                 </div>
                 {!isEmailValid && (
-                  <p className="text-xs text-red-500 mt-1.5 font-medium">Please use your official @iitr.ac.in or departmental email.</p>
+                  <p className="text-xs text-red-500 mt-1.5 font-medium">
+                    {role === "Student"
+                      ? "Please use your official @iitr.ac.in or departmental email."
+                      : "Please enter a valid email address."}
+                  </p>
                 )}
               </div>
 

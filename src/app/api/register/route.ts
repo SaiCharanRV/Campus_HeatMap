@@ -11,12 +11,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
     }
 
-    if (!email.endsWith("@iitr.ac.in") && !email.endsWith(".iitr.ac.in")) {
-      return NextResponse.json({ message: "Only @iitr.ac.in or departmental emails are allowed." }, { status: 400 });
-    }
-
     if (role !== "Student" && role !== "Staff") {
       return NextResponse.json({ message: "Invalid role" }, { status: 400 });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json({ message: "Please provide a valid email address." }, { status: 400 });
+    }
+
+    if (role === "Student") {
+      if (!email.endsWith("@iitr.ac.in") && !email.endsWith(".iitr.ac.in")) {
+        return NextResponse.json({ message: "Only @iitr.ac.in or departmental emails are allowed for students." }, { status: 400 });
+      }
     }
 
     // Check if user already exists

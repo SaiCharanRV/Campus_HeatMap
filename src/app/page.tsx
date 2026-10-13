@@ -9,7 +9,7 @@ export default function Home() {
           IIT Roorkee Campus Portal
         </h1>
         <p className="text-lg text-gray-200 mb-10 max-w-lg mx-auto">
-          Secure, unified access for Students and Staff. Sign in or register using your official @iitr.ac.in email address.
+          Secure, unified access for Students and Staff. Sign in or register to access campus digital services.
         </p>
         
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
