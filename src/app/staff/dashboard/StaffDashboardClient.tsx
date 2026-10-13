@@ -33,6 +33,7 @@ type Complaint = {
   status: string;
   severity?: string;
   location?: string;
+  assignedTo?: string;
 };
 
 interface Props {
@@ -43,6 +44,16 @@ interface Props {
 }
 
 const STATUS_OPTIONS = ["Pending", "In Progress", "Resolved"] as const;
+
+const DEPARTMENT_WORKERS: Record<string, string[]> = {
+  Water: ["Worker 1 (Ramesh)", "Worker 2 (Suresh)", "Worker 3 (Mahesh)"],
+  Electrical: ["Worker 1 (Rajesh)", "Worker 2 (Amit)", "Worker 3 (Vikram)"],
+  WiFi: ["Worker 1 (Karan)", "Worker 2 (Sunil)", "Worker 3 (Pooja)"],
+  Cleaning: ["Worker 1 (Dinesh)", "Worker 2 (Santosh)", "Worker 3 (Lakshmi)"],
+  Infrastructure: ["Worker 1 (Manoj)", "Worker 2 (Anil)", "Worker 3 (Deepak)"],
+};
+
+const DEFAULT_WORKERS = ["Worker 1 (Ramesh)", "Worker 2 (Suresh)", "Worker 3 (Mahesh)"];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -179,10 +190,36 @@ export default function StaffDashboardClient({ name, email, department, zone }: 
 
   // ── Status change → immediately persist to localStorage ──
   const handleStatusChange = useCallback((id: number, newStatus: string) => {
-    setAllComplaints((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: newStatus } : c))
-    );
+    setAllComplaints((prev) => {
+      const updated = prev.map((c) => (c.id === id ? { ...c, status: newStatus } : c));
+      try {
+        localStorage.setItem("userComplaints", JSON.stringify(updated));
+      } catch (err) {
+        console.error("Failed to save status to localStorage:", err);
+      }
+      return updated;
+    });
     showToast(`Status updated to "${newStatus}"`);
+  }, []);
+
+  // ── Worker assignment → immediately persist to localStorage ──
+  const handleWorkerChange = useCallback((id: number, worker: string) => {
+    setAllComplaints((prev) => {
+      const updated = prev.map((c) =>
+        c.id === id ? { ...c, assignedTo: worker } : c
+      );
+      try {
+        localStorage.setItem("userComplaints", JSON.stringify(updated));
+      } catch (err) {
+        console.error("Failed to save worker assignment to localStorage:", err);
+      }
+      return updated;
+    });
+    showToast(
+      worker === "Unassigned"
+        ? "Worker assignment reset to Unassigned"
+        : `Assigned to ${worker}`
+    );
   }, []);
 
   const showToast = (msg: string) => {
@@ -421,13 +458,14 @@ export default function StaffDashboardClient({ name, email, department, zone }: 
                     <th className="px-6 py-4 font-semibold">Location</th>
                     <th className="px-6 py-4 font-semibold">Reported</th>
                     <th className="px-6 py-4 font-semibold">Status</th>
+                    <th className="px-6 py-4 font-semibold">ASSIGNED TO</th>
                     <th className="px-6 py-4 font-semibold">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredComplaints.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="px-6 py-16 text-center">
+                      <td colSpan={7} className="px-6 py-16 text-center">
                         <div className="flex flex-col items-center gap-3">
                           <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center">
                             <Inbox className="h-7 w-7 text-slate-400" />
@@ -444,56 +482,93 @@ export default function StaffDashboardClient({ name, email, department, zone }: 
                       </td>
                     </tr>
                   ) : (
-                    filteredComplaints.map((complaint) => (
-                      <tr key={complaint.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col gap-1.5">
-                            <span className="font-semibold text-slate-900 text-sm">{complaint.issueType}</span>
-                            {getSeverityBadge(complaint.severity)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <p className="text-sm text-slate-600 max-w-xs line-clamp-2">
-                            {complaint.description || "—"}
-                          </p>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="text-sm text-slate-500 flex items-center gap-1 whitespace-nowrap">
-                            <MapPin className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-                            {complaint.location || "Not specified"}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
-                          {complaint.date}
-                        </td>
-                        <td className="px-6 py-4">
-                          {getStatusBadge(complaint.status)}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="relative inline-block">
-                            <select
-                              value={complaint.status}
-                              onChange={(e) => handleStatusChange(complaint.id, e.target.value)}
-                              className={`
-                                appearance-none pl-3 pr-8 py-2 text-sm font-medium rounded-lg border cursor-pointer
-                                focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors
-                                ${complaint.status === "Pending"
-                                  ? "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
-                                  : complaint.status === "In Progress"
-                                  ? "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100"
-                                  : "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
-                                }
-                              `}
-                            >
-                              {STATUS_OPTIONS.map((s) => (
-                                <option key={s} value={s}>{s}</option>
-                              ))}
-                            </select>
-                            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-60" />
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                    filteredComplaints.map((complaint) => {
+                      const workerList = DEPARTMENT_WORKERS[complaint.issueType || department || ""] || DEFAULT_WORKERS;
+                      const hasCustomWorker =
+                        complaint.assignedTo &&
+                        complaint.assignedTo !== "Unassigned" &&
+                        !workerList.includes(complaint.assignedTo);
+
+                      return (
+                        <tr key={complaint.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col gap-1.5">
+                              <span className="font-semibold text-slate-900 text-sm">{complaint.issueType}</span>
+                              {getSeverityBadge(complaint.severity)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <p className="text-sm text-slate-600 max-w-xs line-clamp-2">
+                              {complaint.description || "—"}
+                            </p>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-sm text-slate-500 flex items-center gap-1 whitespace-nowrap">
+                              <MapPin className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                              {complaint.location || "Not specified"}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-slate-500 whitespace-nowrap">
+                            {complaint.date}
+                          </td>
+                          <td className="px-6 py-4">
+                            {getStatusBadge(complaint.status)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="relative inline-block">
+                              <select
+                                value={complaint.assignedTo || "Unassigned"}
+                                onChange={(e) => handleWorkerChange(complaint.id, e.target.value)}
+                                className={`
+                                  appearance-none pl-3 pr-8 py-2 text-sm font-medium rounded-lg border cursor-pointer
+                                  focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors
+                                  ${!complaint.assignedTo || complaint.assignedTo === "Unassigned"
+                                    ? "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                                    : "bg-purple-50 text-purple-800 border-purple-200 hover:bg-purple-100 font-semibold"
+                                  }
+                                `}
+                              >
+                                <option value="Unassigned">Unassigned</option>
+                                {workerList.map((worker) => (
+                                  <option key={worker} value={worker}>
+                                    {worker}
+                                  </option>
+                                ))}
+                                {hasCustomWorker && (
+                                  <option value={complaint.assignedTo}>
+                                    {complaint.assignedTo}
+                                  </option>
+                                )}
+                              </select>
+                              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-60" />
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="relative inline-block">
+                              <select
+                                value={complaint.status}
+                                onChange={(e) => handleStatusChange(complaint.id, e.target.value)}
+                                className={`
+                                  appearance-none pl-3 pr-8 py-2 text-sm font-medium rounded-lg border cursor-pointer
+                                  focus:outline-none focus:ring-2 focus:ring-purple-500 transition-colors
+                                  ${complaint.status === "Pending"
+                                    ? "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+                                    : complaint.status === "In Progress"
+                                    ? "bg-blue-50 text-blue-800 border-blue-200 hover:bg-blue-100"
+                                    : "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                                  }
+                                `}
+                              >
+                                {STATUS_OPTIONS.map((s) => (
+                                  <option key={s} value={s}>{s}</option>
+                                ))}
+                              </select>
+                              <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 pointer-events-none opacity-60" />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>

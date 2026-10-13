@@ -19,6 +19,7 @@ type Complaint = {
   status: string;
   severity?: string;
   location?: string;
+  assignedTo?: string;
 };
 
 // Popular Issue Type
@@ -321,6 +322,11 @@ export default function DashboardClient({ user }: DashboardClientProps) {
                               {getSeverityBadge(issue.severity)}
                             </div>
                             <p className="text-sm text-slate-500 flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {issue.location || "Location not specified"}</p>
+                            {issue.assignedTo && issue.assignedTo !== "Unassigned" && (
+                              <p className="text-xs text-purple-700 bg-purple-50 border border-purple-200 rounded-md px-2 py-0.5 inline-flex items-center gap-1 mt-1.5 font-medium">
+                                Assigned to: {issue.assignedTo}
+                              </p>
+                            )}
                           </div>
                           <div className="text-right">
                             {getStatusBadge(issue.status)}
@@ -428,6 +434,11 @@ export default function DashboardClient({ user }: DashboardClientProps) {
                               <div className="flex flex-col gap-1 items-start">
                                 <span className="font-medium text-slate-900">{complaint.issueType}</span>
                                 {getSeverityBadge(complaint.severity)}
+                                {complaint.assignedTo && complaint.assignedTo !== "Unassigned" && (
+                                  <span className="text-[11px] text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded font-medium">
+                                    Assigned: {complaint.assignedTo}
+                                  </span>
+                                )}
                               </div>
                             </td>
                             <td className="px-6 py-4 text-slate-600">
